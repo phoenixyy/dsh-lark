@@ -81,6 +81,7 @@ import {
   modelPickerCard,
   parseRoute,
   runModelCommand,
+  withInheritedEffort,
 } from './model.ts'
 import type { CatalogEntry, ModelActionValue } from './model.ts'
 import { readMeters, renderStatusCard, STATUS_COMMAND, statusActionValue } from './status.ts'
@@ -922,7 +923,12 @@ export function installBridge(
           return []
         }
       }))
-      return lists.flat().map(model => ({ provider: model.provider, id: model.id, name: model.name }))
+      return lists.flat().map(model => ({
+        provider: model.provider,
+        id: model.id,
+        name: model.name,
+        efforts: (model.reasoning?.efforts ?? []).map(effort => String(effort.id)),
+      }))
     } catch {
       return []
     }
@@ -1691,6 +1697,13 @@ export function installBridge(
           reply = await runModelCommand(msg.content, subject, chatModels, {
             catalog: modelCatalog,
             deploymentRoute,
+            deploymentSelection: () => {
+              try {
+                return modelSelection()
+              } catch {
+                return undefined
+              }
+            },
             release,
           })
         } else if (channelCommand === SESSIONS_COMMAND) {
@@ -2690,11 +2703,19 @@ export function installBridge(
       return { toast: toast('error', TOAST.modelUnreadable) }
     }
     const release = releaseFor(pick.key)
+    const catalog = await modelCatalog()
+    const inherited = (() => {
+      try {
+        return modelSelection().reasoningEffort
+      } catch {
+        return undefined
+      }
+    })()
     const result = route === undefined
       ? await chatModels.reset(pick.key)
-      : await chatModels.set(pick.key, route)
+      : await chatModels.set(pick.key, withInheritedEffort(route, catalog, inherited))
     if (result.changed) await release()
-    const painted = modelPickerCard(pick, await modelCatalog(), chatModels.routeFor(pick.key), deploymentRoute())
+    const painted = modelPickerCard(pick, catalog, chatModels.routeFor(pick.key), deploymentRoute())
     return {
       toast: toast(
         result.changed ? 'success' : 'info',

@@ -213,6 +213,8 @@ export interface HostAgentHandle {
 export interface HostAgentOptions {
   readonly provider?: string | undefined
   readonly model?: string | undefined
+  /** Thinking level for the route; absent leaves the model's own default. */
+  readonly reasoningEffort?: string | undefined
 }
 
 /** One persisted session's header, as this plugin's lookup reads it. */
@@ -405,6 +407,8 @@ export interface HostLlmModel {
   readonly provider: string
   readonly id: string
   readonly name: string
+  /** Advertised thinking levels; absent for a model that offers none. */
+  readonly reasoning?: { readonly efforts: readonly { readonly id: string }[] } | undefined
 }
 
 /**
