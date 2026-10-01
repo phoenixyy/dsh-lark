@@ -419,6 +419,12 @@ export interface HostLlmModel {
 export interface HostLlm {
   listProviders(): HostLlmProvider[]
   listModels(provider: string): Promise<readonly HostLlmModel[]>
+  /**
+   * One model's full description. The listing carries no reasoning levels;
+   * `resolveModelInfo` does, so it is where the offered levels are read. Optional: a host
+   * without it leaves the levels unknown, never empty.
+   */
+  resolveModelInfo?(provider: string, model: string): Promise<HostLlmModel>
 }
 
 /** The `agentDefaultModel` service (subset of `AgentDefaultModelConfig`). */

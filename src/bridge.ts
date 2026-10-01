@@ -40,6 +40,7 @@ import type {
   HostApprovalRequest,
   HostDefaultModel,
   HostLlm,
+  HostLlmModel,
   HostLoader,
   HostPermissionPresets,
   HostSessionQuery,
@@ -923,12 +924,24 @@ export function installBridge(
           return []
         }
       }))
-      return lists.flat().map(model => ({
+      // Levels come from resolveModelInfo, not the listing, which never carries
+      // them. Unknown stays undefined so validation stays advisory; a model
+      // resolved with no `reasoning` genuinely offers none.
+      const levelsOf = async (model: HostLlmModel): Promise<{ efforts?: readonly string[] }> => {
+        if (typeof llm.resolveModelInfo !== 'function') return {}
+        try {
+          const info = await llm.resolveModelInfo(model.provider, model.id)
+          return { efforts: (info.reasoning?.efforts ?? []).map(effort => String(effort.id)) }
+        } catch {
+          return {}
+        }
+      }
+      return await Promise.all(lists.flat().map(async model => ({
         provider: model.provider,
         id: model.id,
         name: model.name,
-        efforts: (model.reasoning?.efforts ?? []).map(effort => String(effort.id)),
-      }))
+        ...await levelsOf(model),
+      })))
     } catch {
       return []
     }

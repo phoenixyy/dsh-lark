@@ -368,4 +368,12 @@ describe('thinking levels', () => {
     await runModelCommand('/model use responses/plain medium', SUBJECT, store, ports)
     expect(store.routeFor('chat')).toEqual({ provider: 'responses', model: 'plain', reasoningEffort: 'medium' })
   })
+
+  it('keeps a level advisory when the catalog does not know the levels', async () => {
+    const unknown: CatalogEntry[] = [{ provider: 'bedrock', id: 'mystery', name: 'Mystery' }]
+    const { store } = createStore()
+    const { ports } = createPorts(unknown)
+    await runModelCommand('/model use bedrock/mystery high', SUBJECT, store, ports)
+    expect(store.routeFor('chat')).toEqual({ provider: 'bedrock', model: 'mystery', reasoningEffort: 'high' })
+  })
 })

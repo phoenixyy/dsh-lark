@@ -75,7 +75,7 @@ export interface CatalogEntry {
   readonly provider: string
   readonly id: string
   readonly name: string
-  /** The thinking levels the route accepts; empty or absent when it offers none. */
+  /** The thinking levels the route accepts: empty when it offers none, absent when unknown. */
   readonly efforts?: readonly string[] | undefined
 }
 
@@ -166,7 +166,7 @@ export function withInheritedEffort(
  */
 function refuseLevelless(catalog: readonly CatalogEntry[], route: HostAgentOptions): string | undefined {
   const listed = catalog.find(entry => entry.provider === route.provider && entry.id === route.model)
-  if (listed === undefined || (listed.efforts ?? []).length > 0) return undefined
+  if (listed?.efforts === undefined || listed.efforts.length > 0) return undefined
   const elsewhere = catalog.filter(entry => entry.id === route.model && (entry.efforts ?? []).length > 0)
   const hint = elsewhere.length === 0
     ? ''
