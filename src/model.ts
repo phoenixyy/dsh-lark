@@ -157,6 +157,23 @@ export function withInheritedEffort(
   return effortsFor(catalog, route).includes(inherited) ? { ...route, reasoningEffort: inherited } : route
 }
 
+/**
+ * Refuse a level for a route the catalog lists with no levels at all. An
+ * unlisted route stays advisory, but a listed one that offers nothing will
+ * fail the next request with UNSUPPORTED_REASONING_EFFORT, so say it here and
+ * point at a route carrying the same model id that does offer levels.
+ * @returns the refusal, or undefined when the level may be recorded.
+ */
+function refuseLevelless(catalog: readonly CatalogEntry[], route: HostAgentOptions): string | undefined {
+  const listed = catalog.find(entry => entry.provider === route.provider && entry.id === route.model)
+  if (listed === undefined || (listed.efforts ?? []).length > 0) return undefined
+  const elsewhere = catalog.filter(entry => entry.id === route.model && (entry.efforts ?? []).length > 0)
+  const hint = elsewhere.length === 0
+    ? ''
+    : `\n可调档位的路由：${elsewhere.map(entry => `\`/${MODEL_COMMAND} use ${entry.provider}/${entry.id} <effort>\``).join('、')}`
+  return `⚠️ \`${route.provider}/${route.model}\` 这条路由不支持调 effort。${hint}`
+}
+
 /** Render offered levels for the chat. */
 function renderEfforts(efforts: readonly string[]): string {
   return efforts.length === 0 ? '（该模型未声明档位）' : efforts.map(id => `\`${id}\``).join(' ')
@@ -383,6 +400,8 @@ export async function runModelCommand(
       return { markdown: `⚠️ 读不到当前模型，请用 \`/${MODEL_COMMAND} use <provider/model> <effort>\`。` }
     }
     const offered = effortsFor(catalog, base)
+    const levelless = level === '' ? undefined : refuseLevelless(catalog, base)
+    if (levelless !== undefined) return { markdown: levelless }
     if (level === '') {
       return {
         markdown: `🧠 当前 effort：\`${base.reasoningEffort ?? '未设置（模型默认）'}\`\n可选：${renderEfforts(offered)}\n用法：\`/${MODEL_COMMAND} effort <档位>\``,
@@ -405,6 +424,8 @@ export async function runModelCommand(
     const resolved = resolveRouteInput(target, catalog)
     if ('reason' in resolved) return { markdown: `⚠️ ${resolved.reason}` }
     const offered = effortsFor(catalog, resolved.route)
+    const levelless = requested === undefined ? undefined : refuseLevelless(catalog, resolved.route)
+    if (levelless !== undefined) return { markdown: levelless }
     if (requested !== undefined && offered.length > 0 && !offered.includes(requested)) {
       return { markdown: `⚠️ \`${resolved.route.model}\` 不支持 effort \`${requested}\`。可选：${renderEfforts(offered)}` }
     }

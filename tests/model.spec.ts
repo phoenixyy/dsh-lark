@@ -300,6 +300,7 @@ describe('thinking levels', () => {
   const reasoning: CatalogEntry[] = [
     { provider: 'bedrock', id: 'opus', name: 'Opus', efforts: ['off', 'low', 'medium', 'high'] },
     { provider: 'bedrock', id: 'plain', name: 'Plain', efforts: [] },
+    { provider: 'responses', id: 'plain', name: 'Plain (reasoning)', efforts: ['low', 'medium'] },
   ]
   const portsWith = (selection?: { provider?: string; model?: string; reasoningEffort?: string }) => {
     const { state, ports } = createPorts(reasoning)
@@ -353,5 +354,18 @@ describe('thinking levels', () => {
     expect(withInheritedEffort(route, reasoning, 'high')).toEqual({ ...route, reasoningEffort: 'high' })
     expect(withInheritedEffort(route, reasoning, 'max')).toEqual(route)
     expect(withInheritedEffort({ ...route, reasoningEffort: 'low' }, reasoning, 'high').reasoningEffort).toBe('low')
+  })
+
+  it('refuses a level on a listed route that offers none, pointing at one that does', async () => {
+    const { store, patches } = createStore()
+    const { ports } = portsWith({ provider: 'bedrock', model: 'plain' })
+    const viaEffort = markdownOf(await runModelCommand('/model effort medium', SUBJECT, store, ports))
+    expect(viaEffort).toContain('不支持调 effort')
+    expect(viaEffort).toContain('responses/plain')
+    const viaUse = markdownOf(await runModelCommand('/model use bedrock/plain medium', SUBJECT, store, ports))
+    expect(viaUse).toContain('不支持调 effort')
+    expect(patches).toEqual([])
+    await runModelCommand('/model use responses/plain medium', SUBJECT, store, ports)
+    expect(store.routeFor('chat')).toEqual({ provider: 'responses', model: 'plain', reasoningEffort: 'medium' })
   })
 })
